@@ -852,7 +852,16 @@ export default {
         });
       }
 
-      if (url.pathname === "/api/scanner") {
+      if (url.pathname === "// ... upar wala code
+
+if (url.pathname === "/api/chart-analyze") {
+  // chart analyze wala code
+}
+
+// ISKE BAAD:
+if (url.pathname === "/api/scanner") {
+  // existing scanner code
+}/api/scanner") {
         const timeframe =
           url.searchParams.get("timeframe") ||
           "15m";
