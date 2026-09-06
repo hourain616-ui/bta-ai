@@ -1,1 +1,212 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BTA AI — Trading Analyzer</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
 
+<aside>
+  <div class="brand">BTA <span>AI</span></div>
+
+  <button class="nav active" data-page="dashboard">Dashboard</button>
+  <button class="nav" data-page="scanner">Market Scanner</button>
+  <button class="nav" data-page="chart">Chart Analyzer</button>
+  <button class="nav" data-page="journal">Trade Journal</button>
+  <button class="nav" data-page="news">News & Macro</button>
+  <button class="nav" data-page="settings">Settings</button>
+</aside>
+
+<main>
+
+<header>
+  <div>
+    <h1 id="title">Market Analysis</h1>
+    <div id="status">Ready</div>
+  </div>
+
+  <div class="controls">
+    <select id="symbol">
+      <option value="XAUUSD">XAUUSD — Gold</option>
+      <option>EURUSD</option>
+      <option>GBPUSD</option>
+      <option>USDJPY</option>
+      <option>USDCHF</option>
+      <option>AUDUSD</option>
+      <option>USDCAD</option>
+      <option>NZDUSD</option>
+    </select>
+
+    <select id="tf">
+      <option>1m</option>
+      <option selected>5m</option>
+      <option>15m</option>
+      <option>30m</option>
+      <option>1h</option>
+      <option>4h</option>
+      <option>1d</option>
+    </select>
+
+    <button id="analyze">ANALYZE</button>
+  </div>
+</header>
+
+<section id="dashboard" class="page">
+
+  <div class="cards">
+
+    <div>
+      <label>PRICE</label>
+      <strong id="price">--</strong>
+    </div>
+
+    <div>
+      <label>EMA TREND</label>
+      <strong id="trend">--</strong>
+    </div>
+
+    <div>
+      <label>RSI 14</label>
+      <strong id="rsi">--</strong>
+    </div>
+
+    <div>
+      <label>CONFIDENCE</label>
+      <strong id="confidence">--</strong>
+    </div>
+
+  </div>
+
+  <div class="grid">
+
+    <div class="panel chart">
+      <div class="paneltitle">PRICE CHART</div>
+      <canvas id="chartCanvas"></canvas>
+    </div>
+
+    <div class="panel signal">
+
+      <div class="paneltitle">TRADE SIGNAL</div>
+
+      <div id="signal">WAIT</div>
+
+      <p id="reason">Click ANALYZE</p>
+
+      <div class="levels">
+
+        <p>
+          Entry
+          <b id="entry">--</b>
+        </p>
+
+        <p>
+          Stop Loss
+          <b id="sl">--</b>
+        </p>
+
+        <p>
+          Take Profit 1
+          <b id="tp1">--</b>
+        </p>
+
+        <p>
+          Take Profit 2
+          <b id="tp2">--</b>
+        </p>
+
+        <p>
+          Take Profit 3
+          <b id="tp3">--</b>
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+<section id="scanner" class="page hidden">
+
+  <div class="panel">
+
+    <div class="paneltitle">MARKET SCANNER</div>
+
+    <button id="scan">SCAN ALL MARKETS</button>
+
+    <div id="scanout"></div>
+
+  </div>
+
+</section>
+
+<section id="chart" class="page hidden">
+
+  <div class="panel upload">
+
+    <div class="paneltitle">CHART ANALYZER</div>
+
+    <input id="image" type="file" accept="image/*">
+
+    <p>
+      Upload a chart screenshot for AI-assisted visual analysis.
+      Connect an image/AI provider in the backend for production vision analysis.
+    </p>
+
+  </div>
+
+</section>
+
+<section id="journal" class="page hidden">
+
+  <div class="panel">
+
+    <div class="paneltitle">TRADE JOURNAL</div>
+
+    <p>
+      Journal module ready for persistence/API integration.
+    </p>
+
+  </div>
+
+</section>
+
+<section id="news" class="page hidden">
+
+  <div class="panel">
+
+    <div class="paneltitle">NEWS & MACRO</div>
+
+    <p>
+      Connect a licensed news/economic-calendar provider in the Worker.
+    </p>
+
+  </div>
+
+</section>
+
+<section id="settings" class="page hidden">
+
+  <div class="panel">
+
+    <div class="paneltitle">SETTINGS</div>
+
+    <p>
+      API keys belong in Cloudflare Worker secrets, never in the browser.
+    </p>
+
+    <pre>npx wrangler secret put TWELVE_DATA_API_KEY</pre>
+
+  </div>
+
+</section>
+
+</main>
+
+<script src="/app.js"></script>
+
+</body>
+</html>
