@@ -1,4 +1,4 @@
-```javascript
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
@@ -927,4 +927,4 @@ export default {
     }
   }
 };
-```
+
