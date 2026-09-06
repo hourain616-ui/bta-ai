@@ -940,10 +940,7 @@ Signal must be BUY, SELL, or WAIT. Do not guarantee profit.`
   }
 }
 
-// ISKE BAAD:
 if (url.pathname === "/api/scanner") {
-  // existing scanner code
-}/api/scanner") {
         const timeframe =
           url.searchParams.get("timeframe") ||
           "15m";
