@@ -1,50 +1,462 @@
-const $=id=>document.getElementById(id);
-const fmt=n=>n==null?"--":Number(n).toLocaleString(undefined,{maximumFractionDigits:5});
-function showPage(page){
-  document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));
-  $(page).classList.remove("hidden");
-  document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.page===page));
-  const titles={dashboard:"Market Analysis",scanner:"Market Scanner",chart:"Chart Analyzer",journal:"Trade Journal",news:"News & Macro",settings:"Settings"};
-  $("title").textContent=titles[page];
-}
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+const $ = id => document.getElementById(id);
 
-function draw(candles){
-  const cv=$("chartCanvas"), ctx=cv.getContext("2d");
-  const dpr=devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight;
-  cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
-  if(!candles?.length)return;
-  const vals=candles.map(x=>x.close), min=Math.min(...vals), max=Math.max(...vals);
-  const pad=20, scale=(h-pad*2)/(max-min||1);
-  ctx.beginPath();
-  vals.forEach((v,i)=>{const x=pad+i*(w-pad*2)/(vals.length-1);const y=h-pad-(v-min)*scale;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
-  ctx.strokeStyle="#19d5b0";ctx.lineWidth=2;ctx.stroke();
-}
-
-async function analyze(){
-  $("status").textContent="Scanning live market data…";
-  try{
-    const r=await fetch(`/api/market?symbol=${$("symbol").value}&timeframe=${$("tf").value}`);
-    const d=await r.json(); if(!d.ok)throw Error(d.error);
-    const a=d.analysis, i=a.indicators;
-    $("price").textContent=fmt(a.price);
-    $("rsi").textContent=fmt(i.rsi14);
-    $("confidence").textContent=`${a.confidence}/100`;
-    $("trend").textContent=i.ema20&&i.ema50?(i.ema20>i.ema50?"BULLISH":"BEARISH"):"--";
-    $("signal").textContent=a.signal;
-    $("reason").textContent=a.reasons.join(" • ");
-    $("entry").textContent=fmt(a.entry); $("sl").textContent=fmt(a.stopLoss);
-    $("tp1").textContent=fmt(a.takeProfit1); $("tp2").textContent=fmt(a.takeProfit2); $("tp3").textContent=fmt(a.takeProfit3);
-    draw(d.candles); $("status").textContent="Live analysis updated";
-  }catch(e){$("status").textContent=e.message}
-}
-$("analyze").onclick=analyze;
-
-$("scan").onclick=async()=>{
-  $("scanout").innerHTML="<p>Scanning…</p>";
-  try{
-    const d=await (await fetch(`/api/scanner?timeframe=${$("tf").value}`)).json();
-    $("scanout").innerHTML=d.results.map(x=>`<div class="scanrow"><b>${x.symbol}</b><span>${x.signal||"ERROR"}</span><span>${x.confidence??"--"}/100</span><span>${x.price?fmt(x.price):x.error}</span></div>`).join("");
-  }catch(e){$("scanout").textContent=e.message}
+const fmt = n => {
+  if (n === null || n === undefined || n === "") return "--";
+  const num = Number(n);
+  if (!Number.isFinite(num)) return "--";
+  return num.toLocaleString(undefined, {
+    maximumFractionDigits: 5
+  });
 };
+
+function showPage(page) {
+  document.querySelectorAll(".page").forEach(x => {
+    x.classList.add("hidden");
+  });
+
+  const target = $(page);
+  if (target) target.classList.remove("hidden");
+
+  document.querySelectorAll(".nav").forEach(x => {
+    x.classList.toggle(
+      "active",
+      x.dataset.page === page
+    );
+  });
+
+  const titles = {
+    dashboard: "Market Analysis",
+    scanner: "Market Scanner",
+    chart: "Chart Analyzer",
+    journal: "Trade Journal",
+    news: "News & Macro",
+    settings: "Settings"
+  };
+
+  $("title").textContent =
+    titles[page] || "BTA AI";
+}
+
+document.querySelectorAll(".nav").forEach(button => {
+  button.onclick = () => {
+    showPage(button.dataset.page);
+  };
+});
+
+function draw(candles) {
+  const canvas = $("chartCanvas");
+
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || 600;
+  const height = canvas.clientHeight || 350;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  ctx.setTransform(
+    dpr,
+    0,
+    0,
+    dpr,
+    0,
+    0
+  );
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+  if (!candles || !candles.length) return;
+
+  const values = candles.map(x =>
+    Number(x.close)
+  );
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  const padding = 20;
+
+  const scale =
+    (height - padding * 2) /
+    (max - min || 1);
+
+  ctx.beginPath();
+
+  values.forEach((value, index) => {
+
+    const x =
+      padding +
+      index *
+        ((width - padding * 2) /
+          Math.max(values.length - 1, 1));
+
+    const y =
+      height -
+      padding -
+      (value - min) * scale;
+
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+
+  });
+
+  ctx.strokeStyle = "#19d5b0";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+async function analyze() {
+
+  $("status").textContent =
+    "Scanning live market data…";
+
+  try {
+
+    const symbol =
+      $("symbol").value;
+
+    const timeframe =
+      $("tf").value;
+
+    const response =
+      await fetch(
+        `/api/market?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`
+      );
+
+    const data =
+      await response.json();
+
+    if (!data.ok) {
+      throw new Error(
+        data.error || "Market analysis failed"
+      );
+    }
+
+    const analysis = data.analysis;
+    const indicators =
+      analysis.indicators || {};
+
+    $("price").textContent =
+      fmt(analysis.price);
+
+    $("rsi").textContent =
+      fmt(indicators.rsi14);
+
+    $("confidence").textContent =
+      `${analysis.confidence}/100`;
+
+    if (
+      indicators.ema20 &&
+      indicators.ema50
+    ) {
+
+      $("trend").textContent =
+        indicators.ema20 >
+        indicators.ema50
+          ? "BULLISH"
+          : "BEARISH";
+
+    } else {
+
+      $("trend").textContent = "--";
+
+    }
+
+    $("signal").textContent =
+      analysis.signal || "WAIT";
+
+    $("reason").textContent =
+      (analysis.reasons || []).join(" • ");
+
+    $("entry").textContent =
+      fmt(analysis.entry);
+
+    $("sl").textContent =
+      fmt(analysis.stopLoss);
+
+    $("tp1").textContent =
+      fmt(analysis.takeProfit1);
+
+    $("tp2").textContent =
+      fmt(analysis.takeProfit2);
+
+    $("tp3").textContent =
+      fmt(analysis.takeProfit3);
+
+    draw(data.candles);
+
+    $("status").textContent =
+      "Live analysis updated";
+
+  } catch (error) {
+
+    $("status").textContent =
+      error.message || "Analysis failed";
+
+  }
+}
+
+$("analyze").onclick = analyze;
+
+$("scan").onclick = async () => {
+
+  $("scanout").innerHTML =
+    "<p>Scanning all markets…</p>";
+
+  try {
+
+    const timeframe =
+      $("tf").value;
+
+    const response =
+      await fetch(
+        `/api/scanner?timeframe=${encodeURIComponent(timeframe)}`
+      );
+
+    const data =
+      await response.json();
+
+    if (!data.ok) {
+      throw new Error(
+        data.error || "Scanner failed"
+      );
+    }
+
+    $("scanout").innerHTML =
+      data.results
+        .map(item => {
+
+          return `
+            <div class="scanrow">
+              <b>${item.symbol}</b>
+              <span>${item.signal || "ERROR"}</span>
+              <span>${item.confidence ?? "--"}/100</span>
+              <span>${item.price ? fmt(item.price) : (item.error || "--")}</span>
+            </div>
+          `;
+
+        })
+        .join("");
+
+  } catch (error) {
+
+    $("scanout").textContent =
+      error.message || "Scanner failed";
+
+  }
+};
+
+function fileToBase64(file) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+
+        const result =
+          String(reader.result);
+
+        const comma =
+          result.indexOf(",");
+
+        if (comma === -1) {
+          reject(
+            new Error(
+              "Could not read image"
+            )
+          );
+          return;
+        }
+
+        resolve(
+          result.slice(comma + 1)
+        );
+
+      };
+
+      reader.onerror = () => {
+
+        reject(
+          new Error(
+            "Could not read image"
+          )
+        );
+
+      };
+
+      reader.readAsDataURL(file);
+
+    }
+  );
+}
+
+const chartButton =
+  $("analyzeChart");
+
+if (chartButton) {
+
+  chartButton.onclick =
+    async () => {
+
+      const file =
+        $("image").files[0];
+
+      const status =
+        $("chartStatus");
+
+      const result =
+        $("chartResult");
+
+      if (!file) {
+
+        status.textContent =
+          "Please select a chart screenshot first.";
+
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+
+        status.textContent =
+          "Image is too large. Please use an image smaller than 15 MB.";
+
+        return;
+      }
+
+      if (
+        ![
+          "image/png",
+          "image/jpeg",
+          "image/webp"
+        ].includes(file.type)
+      ) {
+
+        status.textContent =
+          "Please select a PNG, JPG or WEBP image.";
+
+        return;
+      }
+
+      status.textContent =
+        "AI is scanning your chart…";
+
+      result.classList.add("hidden");
+
+      try {
+
+        const image =
+          await fileToBase64(file);
+
+        const response =
+          await fetch(
+            "/api/chart-analyze",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                image,
+                mimeType: file.type
+              })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!data.ok) {
+
+          throw new Error(
+            data.error ||
+            "Chart analysis failed"
+          );
+
+        }
+
+        const analysis =
+          data.analysis || {};
+
+        $("chartSignal").textContent =
+          analysis.signal || "WAIT";
+
+        $("chartConfidence").textContent =
+          `${analysis.confidence ?? 0}/100`;
+
+        $("chartTrend").textContent =
+          analysis.trend || "--";
+
+        $("chartPattern").textContent =
+          analysis.pattern || "--";
+
+        $("chartEntry").textContent =
+          fmt(analysis.entry);
+
+        $("chartSL").textContent =
+          fmt(analysis.stopLoss);
+
+        $("chartTP1").textContent =
+          fmt(analysis.takeProfit1);
+
+        $("chartTP2").textContent =
+          fmt(analysis.takeProfit2);
+
+        $("chartTP3").textContent =
+          fmt(analysis.takeProfit3);
+
+        const reasons =
+          $("chartReasons");
+
+        reasons.innerHTML = "";
+
+        const list =
+          Array.isArray(analysis.reasons)
+            ? analysis.reasons
+            : [];
+
+        list.forEach(reason => {
+
+          const li =
+            document.createElement("li");
+
+          li.textContent = reason;
+
+          reasons.appendChild(li);
+
+        });
+
+        result.classList.remove("hidden");
+
+        status.textContent =
+          "AI chart analysis completed.";
+
+      } catch (error) {
+
+        status.textContent =
+          error.message ||
+          "Chart analysis failed";
+
+      }
+
+    };
+
+}
+
 analyze();
