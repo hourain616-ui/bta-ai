@@ -6,6 +6,7 @@
 <title>BTA AI — Trading Analyzer</title>
 <link rel="stylesheet" href="/app.css">
 </head>
+
 <body>
 
 <aside>
@@ -96,30 +97,11 @@
 
       <div class="levels">
 
-        <p>
-          Entry
-          <b id="entry">--</b>
-        </p>
-
-        <p>
-          Stop Loss
-          <b id="sl">--</b>
-        </p>
-
-        <p>
-          Take Profit 1
-          <b id="tp1">--</b>
-        </p>
-
-        <p>
-          Take Profit 2
-          <b id="tp2">--</b>
-        </p>
-
-        <p>
-          Take Profit 3
-          <b id="tp3">--</b>
-        </p>
+        <p>Entry <b id="entry">--</b></p>
+        <p>Stop Loss <b id="sl">--</b></p>
+        <p>Take Profit 1 <b id="tp1">--</b></p>
+        <p>Take Profit 2 <b id="tp2">--</b></p>
+        <p>Take Profit 3 <b id="tp3">--</b></p>
 
       </div>
 
@@ -147,14 +129,69 @@
 
   <div class="panel upload">
 
-    <div class="paneltitle">CHART ANALYZER</div>
-
-    <input id="image" type="file" accept="image/*">
+    <div class="paneltitle">AI CHART ANALYZER</div>
 
     <p>
-      Upload a chart screenshot for AI-assisted visual analysis.
-      Connect an image/AI provider in the backend for production vision analysis.
+      Upload your trading chart screenshot.
+      BTA AI will analyze the chart using Gemini AI.
     </p>
+
+    <input
+      id="image"
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+    >
+
+    <br><br>
+
+    <button id="analyzeChart">
+      ANALYZE CHART WITH AI
+    </button>
+
+    <div id="chartStatus"></div>
+
+    <div id="chartResult" class="hidden">
+
+      <h2 id="chartSignal">WAIT</h2>
+
+      <div class="cards">
+
+        <div>
+          <label>CONFIDENCE</label>
+          <strong id="chartConfidence">--</strong>
+        </div>
+
+        <div>
+          <label>TREND</label>
+          <strong id="chartTrend">--</strong>
+        </div>
+
+        <div>
+          <label>PATTERN</label>
+          <strong id="chartPattern">--</strong>
+        </div>
+
+      </div>
+
+      <div class="levels">
+
+        <p>Entry <b id="chartEntry">--</b></p>
+        <p>Stop Loss <b id="chartSL">--</b></p>
+        <p>Take Profit 1 <b id="chartTP1">--</b></p>
+        <p>Take Profit 2 <b id="chartTP2">--</b></p>
+        <p>Take Profit 3 <b id="chartTP3">--</b></p>
+
+      </div>
+
+      <div class="panel">
+
+        <div class="paneltitle">AI REASONS</div>
+
+        <ul id="chartReasons"></ul>
+
+      </div>
+
+    </div>
 
   </div>
 
@@ -163,13 +200,8 @@
 <section id="journal" class="page hidden">
 
   <div class="panel">
-
     <div class="paneltitle">TRADE JOURNAL</div>
-
-    <p>
-      Journal module ready for persistence/API integration.
-    </p>
-
+    <p>Journal module ready.</p>
   </div>
 
 </section>
@@ -177,13 +209,8 @@
 <section id="news" class="page hidden">
 
   <div class="panel">
-
     <div class="paneltitle">NEWS & MACRO</div>
-
-    <p>
-      Connect a licensed news/economic-calendar provider in the Worker.
-    </p>
-
+    <p>News and economic calendar module.</p>
   </div>
 
 </section>
@@ -195,10 +222,8 @@
     <div class="paneltitle">SETTINGS</div>
 
     <p>
-      API keys belong in Cloudflare Worker secrets, never in the browser.
+      API keys are securely stored in Cloudflare Worker secrets.
     </p>
-
-    <pre>npx wrangler secret put TWELVE_DATA_API_KEY</pre>
 
   </div>
 
