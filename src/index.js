@@ -855,7 +855,91 @@ export default {
       if (url.pathname === "// ... upar wala code
 
 if (url.pathname === "/api/chart-analyze") {
-  // chart analyze wala code
+  if (request.method !== "POST") {
+    return json({ ok: false, error: "POST required" }, 405);
+  }
+
+  try {
+    const body = await request.json();
+
+    if (!body.image || !body.mimeType) {
+      return json({
+        ok: false,
+        error: "Chart image is required"
+      }, 400);
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return json({
+        ok: false,
+        error: "GEMINI_API_KEY is not configured"
+      }, 500);
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": env.GEMINI_API_KEY
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                text: `Analyze this trading chart. Return ONLY valid JSON with:
+trend, structure, momentum, support, resistance, signal, confidence, entry, stop_loss, tp1, tp2, tp3.
+Signal must be BUY, SELL, or WAIT. Do not guarantee profit.`
+              },
+              {
+                inline_data: {
+                  mime_type: body.mimeType,
+                  data: body.image
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json"
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return json({
+        ok: false,
+        error: data?.error?.message || "Gemini analysis failed"
+      }, 500);
+    }
+
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map(p => p.text || "")
+      .join("")
+      .trim();
+
+    if (!text) {
+      return json({
+        ok: false,
+        error: "Gemini returned empty analysis"
+      }, 500);
+    }
+
+    return json({
+      ok: true,
+      analysis: JSON.parse(text)
+    });
+
+  } catch (error) {
+    return json({
+      ok: false,
+      error: error.message || "Chart analysis failed"
+    }, 500);
+  }
 }
 
 // ISKE BAAD:
