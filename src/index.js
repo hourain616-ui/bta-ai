@@ -852,7 +852,7 @@ export default {
         });
       }
 
-      if (url.pathname === "// ... upar wala code
+      
 
 if (url.pathname === "/api/chart-analyze") {
   if (request.method !== "POST") {
