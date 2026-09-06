@@ -1,0 +1,10 @@
+name = "bta-ai"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+APP_NAME = "BTA AI"
