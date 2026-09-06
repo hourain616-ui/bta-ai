@@ -850,10 +850,8 @@ export default {
           candles: rows,
           analysis
         });
-      }
-
+      } 
       
-
 if (url.pathname === "/api/chart-analyze") {
   if (request.method !== "POST") {
     return json({ ok: false, error: "POST required" }, 405);
