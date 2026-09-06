@@ -1,18 +1,13 @@
+```javascript
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  "Access-Control-Allow-Methods": "GET, OPTIONS"
 };
 
 const SYMBOLS = [
-  "XAUUSD",
-  "EURUSD",
-  "GBPUSD",
-  "USDJPY",
-  "USDCHF",
-  "AUDUSD",
-  "USDCAD",
-  "NZDUSD"
+  "XAUUSD", "EURUSD", "GBPUSD", "USDJPY",
+  "USDCHF", "AUDUSD", "USDCAD", "NZDUSD"
 ];
 
 const TF_MAP = {
@@ -24,6 +19,8 @@ const TF_MAP = {
   "4h": "4h",
   "1d": "1day"
 };
+
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -53,9 +50,7 @@ function ema(values, n) {
   const k = 2 / (n + 1);
 
   let e =
-    values
-      .slice(0, n)
-      .reduce((a, b) => a + b, 0) / n;
+    values.slice(0, n).reduce((a, b) => a + b, 0) / n;
 
   for (let i = n; i < values.length; i++) {
     e = values[i] * k + e * (1 - k);
@@ -73,11 +68,8 @@ function rsi(values, n = 14) {
   for (let i = 1; i <= n; i++) {
     const d = values[i] - values[i - 1];
 
-    if (d >= 0) {
-      gain += d;
-    } else {
-      loss -= d;
-    }
+    if (d >= 0) gain += d;
+    else loss -= d;
   }
 
   let avgGain = gain / n;
@@ -87,15 +79,17 @@ function rsi(values, n = 14) {
     const d = values[i] - values[i - 1];
 
     avgGain =
-      (avgGain * (n - 1) + Math.max(d, 0)) / n;
+      ((avgGain * (n - 1)) + Math.max(d, 0)) / n;
 
     avgLoss =
-      (avgLoss * (n - 1) + Math.max(-d, 0)) / n;
+      ((avgLoss * (n - 1)) + Math.max(-d, 0)) / n;
   }
 
   if (avgLoss === 0) return 100;
 
-  return 100 - 100 / (1 + avgGain / avgLoss);
+  const rs = avgGain / avgLoss;
+
+  return 100 - (100 / (1 + rs));
 }
 
 function atr(rows, n = 14) {
@@ -104,15 +98,15 @@ function atr(rows, n = 14) {
   const tr = [];
 
   for (let i = 1; i < rows.length; i++) {
-    const high = rows[i].high;
-    const low = rows[i].low;
-    const previousClose = rows[i - 1].close;
+    const h = rows[i].high;
+    const l = rows[i].low;
+    const pc = rows[i - 1].close;
 
     tr.push(
       Math.max(
-        high - low,
-        Math.abs(high - previousClose),
-        Math.abs(low - previousClose)
+        h - l,
+        Math.abs(h - pc),
+        Math.abs(l - pc)
       )
     );
   }
@@ -120,10 +114,87 @@ function atr(rows, n = 14) {
   return sma(tr, n);
 }
 
-function analyze(rows, symbol, timeframe) {
+function roundPrice(value) {
+  if (value === null || value === undefined) return null;
+
+  if (!Number.isFinite(value)) return null;
+
+  return Number(value.toFixed(6));
+}
+
+function detectStructure(rows) {
+  if (rows.length < 20) {
+    return {
+      trend: "UNKNOWN",
+      structure: "INSUFFICIENT_DATA"
+    };
+  }
+
+  const recent = rows.slice(-20);
+
+  const highs = recent.map(x => x.high);
+  const lows = recent.map(x => x.low);
+
+  const previousHigh = Math.max(...highs.slice(0, 10));
+  const recentHigh = Math.max(...highs.slice(10));
+
+  const previousLow = Math.min(...lows.slice(0, 10));
+  const recentLow = Math.min(...lows.slice(10));
+
+  if (
+    recentHigh > previousHigh &&
+    recentLow > previousLow
+  ) {
+    return {
+      trend: "BULLISH",
+      structure: "HIGHER_HIGH_HIGHER_LOW"
+    };
+  }
+
+  if (
+    recentHigh < previousHigh &&
+    recentLow < previousLow
+  ) {
+    return {
+      trend: "BEARISH",
+      structure: "LOWER_HIGH_LOWER_LOW"
+    };
+  }
+
+  return {
+    trend: "RANGE",
+    structure: "MIXED"
+  };
+}
+
+function detectLevels(rows) {
+  if (!rows.length) {
+    return {
+      support: null,
+      resistance: null
+    };
+  }
+
+  const recent = rows.slice(-50);
+
+  const support = Math.min(...recent.map(x => x.low));
+  const resistance = Math.max(...recent.map(x => x.high));
+
+  return {
+    support: roundPrice(support),
+    resistance: roundPrice(resistance)
+  };
+}
+
+function technicalAnalysis(rows, symbol, timeframe) {
+  if (!rows || rows.length < 50) {
+    throw new Error("Not enough candle data for analysis");
+  }
+
   const closes = rows.map(x => x.close);
 
   const last = rows[rows.length - 1];
+
   const price = last.close;
 
   const ema20 = ema(closes, 20);
@@ -133,10 +204,13 @@ function analyze(rows, symbol, timeframe) {
   const rsi14 = rsi(closes, 14);
   const atr14 = atr(rows, 14);
 
+  const structure = detectStructure(rows);
+  const levels = detectLevels(rows);
+
   let score = 50;
   const reasons = [];
 
-  if (ema20 && ema50) {
+  if (ema20 !== null && ema50 !== null) {
     if (ema20 > ema50) {
       score += 12;
       reasons.push("EMA20 above EMA50");
@@ -146,7 +220,7 @@ function analyze(rows, symbol, timeframe) {
     }
   }
 
-  if (ema50 && ema200) {
+  if (ema50 !== null && ema200 !== null) {
     if (ema50 > ema200) {
       score += 15;
       reasons.push("EMA50 above EMA200");
@@ -159,39 +233,48 @@ function analyze(rows, symbol, timeframe) {
   if (rsi14 !== null) {
     if (rsi14 >= 52 && rsi14 <= 70) {
       score += 8;
-      reasons.push("RSI supports bullish momentum");
+      reasons.push("RSI bullish momentum");
     } else if (rsi14 <= 48 && rsi14 >= 30) {
       score -= 8;
-      reasons.push("RSI supports bearish momentum");
+      reasons.push("RSI bearish momentum");
     } else if (rsi14 > 70) {
-      reasons.push("RSI is overbought");
+      reasons.push("RSI overbought");
     } else if (rsi14 < 30) {
-      reasons.push("RSI is oversold");
+      reasons.push("RSI oversold");
     }
   }
 
-  if (ema20 && price > ema20) {
-    score += 5;
-    reasons.push("Price above EMA20");
+  if (ema20 !== null) {
+    if (price > ema20) {
+      score += 5;
+      reasons.push("Price above EMA20");
+    } else {
+      score -= 5;
+      reasons.push("Price below EMA20");
+    }
   }
 
-  if (ema20 && price < ema20) {
-    score -= 5;
-    reasons.push("Price below EMA20");
+  if (structure.trend === "BULLISH") {
+    score += 8;
+    reasons.push("Bullish market structure");
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  if (structure.trend === "BEARISH") {
+    score -= 8;
+    reasons.push("Bearish market structure");
+  }
 
-  const signal =
-    score >= 72
-      ? "STRONG BUY"
-      : score >= 58
-      ? "BUY"
-      : score <= 28
-      ? "STRONG SELL"
-      : score <= 42
-      ? "SELL"
-      : "WAIT";
+  score = Math.max(
+    0,
+    Math.min(100, Math.round(score))
+  );
+
+  let signal = "WAIT";
+
+  if (score >= 75) signal = "STRONG BUY";
+  else if (score >= 60) signal = "BUY";
+  else if (score <= 25) signal = "STRONG SELL";
+  else if (score <= 40) signal = "SELL";
 
   const risk = Math.max(
     atr14 || price * 0.002,
@@ -206,6 +289,7 @@ function analyze(rows, symbol, timeframe) {
 
   if (signal.includes("BUY")) {
     stopLoss = price - risk;
+
     takeProfit1 = price + risk * 1.5;
     takeProfit2 = price + risk * 2.5;
     takeProfit3 = price + risk * 3.5;
@@ -213,34 +297,48 @@ function analyze(rows, symbol, timeframe) {
 
   if (signal.includes("SELL")) {
     stopLoss = price + risk;
+
     takeProfit1 = price - risk * 1.5;
     takeProfit2 = price - risk * 2.5;
     takeProfit3 = price - risk * 3.5;
   }
 
+  const riskReward =
+    stopLoss !== null && takeProfit1 !== null
+      ? Math.abs(takeProfit1 - entry) /
+        Math.abs(entry - stopLoss)
+      : null;
+
   return {
     symbol,
     timeframe,
-    price,
+    price: roundPrice(price),
 
     indicators: {
-      ema20,
-      ema50,
-      ema200,
-      rsi14,
-      atr14
+      ema20: roundPrice(ema20),
+      ema50: roundPrice(ema50),
+      ema200: roundPrice(ema200),
+      rsi14: roundPrice(rsi14),
+      atr14: roundPrice(atr14)
     },
+
+    marketStructure: structure,
+
+    levels,
 
     signal,
     confidence: score,
 
-    entry,
-    stopLoss,
-    takeProfit1,
-    takeProfit2,
-    takeProfit3,
+    entry: roundPrice(entry),
+    stopLoss: roundPrice(stopLoss),
+    takeProfit1: roundPrice(takeProfit1),
+    takeProfit2: roundPrice(takeProfit2),
+    takeProfit3: roundPrice(takeProfit3),
 
-    riskReward: stopLoss ? 1.5 : null,
+    riskReward:
+      riskReward !== null
+        ? Number(riskReward.toFixed(2))
+        : null,
 
     reasons
   };
@@ -261,6 +359,7 @@ async function td(url, env) {
   );
 
   const response = await fetch(u.toString());
+
   const data = await response.json();
 
   if (!response.ok || data.status === "error") {
@@ -274,8 +373,19 @@ async function td(url, env) {
 }
 
 async function candles(symbol, timeframe, env) {
-  const interval =
-    TF_MAP[timeframe] || "5min";
+  if (!SYMBOLS.includes(symbol)) {
+    throw new Error(
+      `Unsupported symbol: ${symbol}`
+    );
+  }
+
+  if (!TF_MAP[timeframe]) {
+    throw new Error(
+      `Unsupported timeframe: ${timeframe}`
+    );
+  }
+
+  const interval = TF_MAP[timeframe];
 
   const pair =
     symbol === "XAUUSD"
@@ -293,198 +403,402 @@ async function candles(symbol, timeframe, env) {
 
   const data = await td(url, env);
 
-  if (!data.values) {
+  if (!data.values || !Array.isArray(data.values)) {
     throw new Error(
       "No market data returned"
     );
   }
 
-  return data.values.reverse().map(v => ({
-    time: v.datetime,
-    open: Number(v.open),
-    high: Number(v.high),
-    low: Number(v.low),
-    close: Number(v.close),
-    volume: Number(v.volume || 0)
-  }));
-}function cleanJsonText(text) {
-  const cleaned = String(text || "")
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  const rows = data.values
+    .slice()
+    .reverse()
+    .map(v => ({
+      time: v.datetime,
+      open: Number(v.open),
+      high: Number(v.high),
+      low: Number(v.low),
+      close: Number(v.close),
+      volume: Number(v.volume || 0)
+    }));
 
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
+  const invalid = rows.some(
+    x =>
+      !Number.isFinite(x.open) ||
+      !Number.isFinite(x.high) ||
+      !Number.isFinite(x.low) ||
+      !Number.isFinite(x.close)
+  );
 
-  if (start === -1 || end === -1) {
-    throw new Error("Gemini returned invalid analysis");
-  }
-
-  return JSON.parse(cleaned.slice(start, end + 1));
-}
-
-async function analyzeChartImage(image, mimeType, env) {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured");
-  }
-
-  if (!image || !mimeType) {
-    throw new Error("Chart image is required");
-  }
-
-  if (!/^image\/(png|jpeg|webp|jpg)$/.test(mimeType)) {
+  if (invalid) {
     throw new Error(
-      "Only PNG, JPEG or WEBP images are supported"
+      "Invalid candle data received"
     );
   }
 
-  const prompt = `
-You are an advanced technical chart analyst.
-
-Carefully analyze the uploaded trading chart screenshot.
-
-Look for:
-- Market structure
-- Trend direction
-- Support and resistance
-- Candlestick behavior
-- Chart patterns
-- Visible indicators
-- Momentum
-- Possible entry
-- Stop loss
-- Take profit levels
-
-Return ONLY valid JSON using exactly this structure:
-
-{
-  "signal": "BUY or SELL or WAIT",
-  "confidence": 0,
-  "entry": null,
-  "stopLoss": null,
-  "takeProfit1": null,
-  "takeProfit2": null,
-  "takeProfit3": null,
-  "pattern": "",
-  "trend": "",
-  "reasons": []
+  return rows;
 }
 
-Rules:
-- confidence must be an integer from 0 to 100.
-- Do not invent prices that cannot reasonably be read from the chart.
-- If a price level cannot be determined reliably, use null.
-- reasons must contain short explanations.
-- Do not invent indicators that are not visible.
-- Signal must be BUY, SELL or WAIT.
-- This is technical analysis, not a guarantee of future price movement.
-`;
+function buildGeminiPayload(
+  rows,
+  analysis
+) {
+  const recentCandles = rows
+    .slice(-30)
+    .map(c => ({
+      time: c.time,
+      open: roundPrice(c.open),
+      high: roundPrice(c.high),
+      low: roundPrice(c.low),
+      close: roundPrice(c.close),
+      volume: c.volume
+    }));
 
-  const endpoint =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": env.GEMINI_API_KEY
+  return {
+    market: {
+      symbol: analysis.symbol,
+      timeframe: analysis.timeframe,
+      price: analysis.price
     },
 
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt
-            },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: image
-              }
-            }
-          ]
-        }
-      ],
+    indicators: analysis.indicators,
 
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json"
+    marketStructure:
+      analysis.marketStructure,
+
+    supportResistance:
+      analysis.levels,
+
+    technicalSignal: {
+      signal: analysis.signal,
+      confidence: analysis.confidence,
+      reasons: analysis.reasons
+    },
+
+    recentCandles
+  };
+}
+
+async function geminiAnalyze(
+  payload,
+  env
+) {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error(
+      "GEMINI_API_KEY is not configured"
+    );
+  }
+
+  const endpoint =
+    `https://generativelanguage.googleapis.com/v1beta/` +
+    `models/${GEMINI_MODEL}:generateContent`;
+
+  const schema = {
+    type: "OBJECT",
+    properties: {
+      signal: {
+        type: "STRING",
+        enum: [
+          "STRONG BUY",
+          "BUY",
+          "WAIT",
+          "SELL",
+          "STRONG SELL"
+        ]
+      },
+
+      confidence: {
+        type: "INTEGER",
+        minimum: 0,
+        maximum: 100
+      },
+
+      entry: {
+        type: ["NUMBER", "NULL"]
+      },
+
+      stopLoss: {
+        type: ["NUMBER", "NULL"]
+      },
+
+      takeProfit1: {
+        type: ["NUMBER", "NULL"]
+      },
+
+      takeProfit2: {
+        type: ["NUMBER", "NULL"]
+      },
+
+      takeProfit3: {
+        type: ["NUMBER", "NULL"]
+      },
+
+      marketBias: {
+        type: "STRING"
+      },
+
+      setupQuality: {
+        type: "STRING",
+        enum: [
+          "HIGH",
+          "MEDIUM",
+          "LOW"
+        ]
+      },
+
+      reasons: {
+        type: "ARRAY",
+        items: {
+          type: "STRING"
+        }
+      },
+
+      warning: {
+        type: "STRING"
       }
-    })
-  });
+    },
+
+    required: [
+      "signal",
+      "confidence",
+      "entry",
+      "stopLoss",
+      "takeProfit1",
+      "takeProfit2",
+      "takeProfit3",
+      "marketBias",
+      "setupQuality",
+      "reasons",
+      "warning"
+    ]
+  };
+
+  const prompt = `
+You are the AI confirmation engine for a trading-analysis system.
+
+Analyze the supplied market data objectively.
+
+Rules:
+
+1. Do NOT invent market data.
+2. Do NOT guarantee profit or accuracy.
+3. If the setup is unclear, conflicting, overextended,
+   or lacks confirmation, return WAIT.
+4. Only return BUY when bullish evidence is sufficiently
+   stronger than bearish evidence.
+5. Only return SELL when bearish evidence is sufficiently
+   stronger than bullish evidence.
+6. STRONG BUY and STRONG SELL require strong multi-factor
+   confirmation.
+7. Respect the supplied current price.
+8. Entry, stop loss and take-profit levels must be realistic
+   relative to ATR and current market structure.
+9. Do not use confidence above 90 unless several independent
+   factors strongly agree.
+10. Keep the reasons concise.
+11. This is analysis, not financial advice.
+
+Pay special attention to:
+
+- EMA alignment
+- RSI
+- ATR
+- market structure
+- support/resistance
+- recent candle behavior
+- momentum
+- trend consistency
+
+Return ONLY the requested JSON object.
+
+MARKET DATA:
+${JSON.stringify(payload)}
+`;
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            text: prompt
+          }
+        ]
+      }
+    ],
+
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+      responseSchema: schema
+    }
+  };
+
+  const response = await fetch(
+    endpoint,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": env.GEMINI_API_KEY
+      },
+
+      body: JSON.stringify(body)
+    }
+  );
 
   const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
       data?.error?.message ||
-      "Gemini chart analysis failed"
+      "Gemini API request failed"
     );
   }
 
   const text =
     data?.candidates?.[0]?.content?.parts
       ?.map(p => p.text || "")
-      .join("") || "";
+      .join("")
+      .trim();
 
-  const result = cleanJsonText(text);
+  if (!text) {
+    throw new Error(
+      "Gemini returned an empty response"
+    );
+  }
+
+  let result;
+
+  try {
+    result = JSON.parse(text);
+  } catch {
+    throw new Error(
+      "Gemini returned invalid JSON"
+    );
+  }
+
+  return result;
+}
+
+function validateGeminiResult(result, fallback) {
+  const allowed = [
+    "STRONG BUY",
+    "BUY",
+    "WAIT",
+    "SELL",
+    "STRONG SELL"
+  ];
+
+  if (
+    !result ||
+    !allowed.includes(result.signal)
+  ) {
+    return {
+      ...fallback,
+      ai: {
+        enabled: false,
+        error: "Invalid Gemini signal"
+      }
+    };
+  }
+
+  const confidence = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(result.confidence) || 0
+    )
+  );
 
   return {
-    ok: true,
+    ...fallback,
 
-    analysis: {
-      signal:
-        result.signal || "WAIT",
+    signal: result.signal,
+    confidence,
 
-      confidence:
-        Number.isFinite(
-          Number(result.confidence)
-        )
-          ? Math.max(
-              0,
-              Math.min(
-                100,
-                Number(result.confidence)
-              )
-            )
-          : 0,
+    entry:
+      result.entry !== null
+        ? roundPrice(Number(result.entry))
+        : fallback.entry,
 
-      entry:
-        result.entry ?? null,
+    stopLoss:
+      result.stopLoss !== null
+        ? roundPrice(Number(result.stopLoss))
+        : fallback.stopLoss,
 
-      stopLoss:
-        result.stopLoss ?? null,
+    takeProfit1:
+      result.takeProfit1 !== null
+        ? roundPrice(Number(result.takeProfit1))
+        : fallback.takeProfit1,
 
-      takeProfit1:
-        result.takeProfit1 ?? null,
+    takeProfit2:
+      result.takeProfit2 !== null
+        ? roundPrice(Number(result.takeProfit2))
+        : fallback.takeProfit2,
 
-      takeProfit2:
-        result.takeProfit2 ?? null,
+    takeProfit3:
+      result.takeProfit3 !== null
+        ? roundPrice(Number(result.takeProfit3))
+        : fallback.takeProfit3,
 
-      takeProfit3:
-        result.takeProfit3 ?? null,
-
-      pattern:
-        result.pattern ||
-        "Not clearly identified",
-
-      trend:
-        result.trend ||
-        "Not clearly identified",
-
-      reasons:
-        Array.isArray(result.reasons)
-          ? result.reasons
-          : []
+    ai: {
+      enabled: true,
+      model: GEMINI_MODEL,
+      marketBias: result.marketBias || "UNKNOWN",
+      setupQuality: result.setupQuality || "LOW",
+      reasons: Array.isArray(result.reasons)
+        ? result.reasons.slice(0, 8)
+        : [],
+      warning: result.warning || ""
     }
   };
 }
 
+async function fullAnalysis(
+  rows,
+  symbol,
+  timeframe,
+  env
+) {
+  const technical =
+    technicalAnalysis(
+      rows,
+      symbol,
+      timeframe
+    );
+
+  const payload =
+    buildGeminiPayload(
+      rows,
+      technical
+    );
+
+  try {
+    const ai =
+      await geminiAnalyze(
+        payload,
+        env
+      );
+
+    return validateGeminiResult(
+      ai,
+      technical
+    );
+  } catch (error) {
+    return {
+      ...technical,
+
+      ai: {
+        enabled: false,
+        model: GEMINI_MODEL,
+        error: error.message
+      }
+    };
+  }
+}
+
 export default {
   async fetch(request, env) {
-
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: CORS
@@ -494,21 +808,19 @@ export default {
     const url = new URL(request.url);
 
     try {
-
-      if (
-        url.pathname === "/api/health"
-      ) {
+      if (url.pathname === "/api/health") {
         return json({
           ok: true,
           app: env.APP_NAME || "BTA AI",
-          symbols: SYMBOLS
+          symbols: SYMBOLS,
+          geminiConfigured:
+            Boolean(env.GEMINI_API_KEY),
+          twelveDataConfigured:
+            Boolean(env.TWELVE_DATA_API_KEY)
         });
       }
 
-      if (
-        url.pathname === "/api/market"
-      ) {
-
+      if (url.pathname === "/api/market") {
         const symbol =
           (
             url.searchParams.get("symbol") ||
@@ -516,9 +828,8 @@ export default {
           ).toUpperCase();
 
         const timeframe =
-          url.searchParams.get(
-            "timeframe"
-          ) || "5m";
+          url.searchParams.get("timeframe") ||
+          "5m";
 
         const rows =
           await candles(
@@ -527,56 +838,68 @@ export default {
             env
           );
 
+        const analysis =
+          await fullAnalysis(
+            rows,
+            symbol,
+            timeframe,
+            env
+          );
+
         return json({
           ok: true,
           candles: rows,
-          analysis: analyze(
-            rows,
-            symbol,
-            timeframe
-          )
+          analysis
         });
       }
 
-      if (
-        url.pathname === "/api/scanner"
-      ) {
-
+      if (url.pathname === "/api/scanner") {
         const timeframe =
-          url.searchParams.get(
-            "timeframe"
-          ) || "15m";
+          url.searchParams.get("timeframe") ||
+          "15m";
 
-        const results = [];
-
-        for (const symbol of SYMBOLS) {
-
-          try {
-
-            const rows =
-              await candles(
-                symbol,
-                timeframe,
-                env
-              );
-
-            results.push(
-              analyze(
-                rows,
-                symbol,
-                timeframe
-              )
-            );
-
-          } catch (error) {
-
-            results.push({
-              symbol,
-              error: error.message
-            });
-
-          }
+        if (!TF_MAP[timeframe]) {
+          return json(
+            {
+              ok: false,
+              error:
+                `Unsupported timeframe: ${timeframe}`
+            },
+            400
+          );
         }
+
+        const results =
+          await Promise.all(
+            SYMBOLS.map(
+              async symbol => {
+                try {
+                  const rows =
+                    await candles(
+                      symbol,
+                      timeframe,
+                      env
+                    );
+
+                  const analysis =
+                    await fullAnalysis(
+                      rows,
+                      symbol,
+                      timeframe,
+                      env
+                    );
+
+                  return analysis;
+                } catch (error) {
+                  return {
+                    symbol,
+                    timeframe,
+                    error: error.message
+                  };
+                }
+              }
+            )
+          );
 
         results.sort(
           (a, b) =>
@@ -591,27 +914,9 @@ export default {
         });
       }
 
-      if (
-        url.pathname === "/api/chart-analyze" &&
-        request.method === "POST"
-      ) {
-
-        const body =
-          await request.json();
-
-        return json(
-          await analyzeChartImage(
-            body.image,
-            body.mimeType,
-            env
-          )
-        );
-      }
-
       return env.ASSETS.fetch(request);
 
     } catch (error) {
-
       return json(
         {
           ok: false,
@@ -622,3 +927,4 @@ export default {
     }
   }
 };
+```
