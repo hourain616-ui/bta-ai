@@ -1,7 +1,7 @@
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS"
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
 };
 
 const SYMBOLS = [
