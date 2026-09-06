@@ -2,26 +2,36 @@ const $ = id => document.getElementById(id);
 
 const fmt = n => {
   if (n === null || n === undefined || n === "") return "--";
+
   const num = Number(n);
+
   if (!Number.isFinite(num)) return "--";
+
   return num.toLocaleString(undefined, {
     maximumFractionDigits: 5
   });
 };
 
+
 function showPage(page) {
+
   document.querySelectorAll(".page").forEach(x => {
     x.classList.add("hidden");
   });
 
   const target = $(page);
-  if (target) target.classList.remove("hidden");
+
+  if (target) {
+    target.classList.remove("hidden");
+  }
 
   document.querySelectorAll(".nav").forEach(x => {
+
     x.classList.toggle(
       "active",
       x.dataset.page === page
     );
+
   });
 
   const titles = {
@@ -33,29 +43,44 @@ function showPage(page) {
     settings: "Settings"
   };
 
-  $("title").textContent =
-    titles[page] || "BTA AI";
+  if ($("title")) {
+    $("title").textContent =
+      titles[page] || "BTA AI";
+  }
 }
 
+
 document.querySelectorAll(".nav").forEach(button => {
+
   button.onclick = () => {
     showPage(button.dataset.page);
   };
+
 });
 
+
 function draw(candles) {
+
   const canvas = $("chartCanvas");
 
   if (!canvas) return;
 
   const ctx = canvas.getContext("2d");
 
-  const dpr = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth || 600;
-  const height = canvas.clientHeight || 350;
+  const dpr =
+    window.devicePixelRatio || 1;
 
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
+  const width =
+    canvas.clientWidth || 600;
+
+  const height =
+    canvas.clientHeight || 350;
+
+  canvas.width =
+    width * dpr;
+
+  canvas.height =
+    height * dpr;
 
   ctx.setTransform(
     dpr,
@@ -73,14 +98,20 @@ function draw(candles) {
     height
   );
 
-  if (!candles || !candles.length) return;
+  if (!candles || !candles.length) {
+    return;
+  }
 
-  const values = candles.map(x =>
-    Number(x.close)
-  );
+  const values =
+    candles.map(x =>
+      Number(x.close)
+    );
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min =
+    Math.min(...values);
+
+  const max =
+    Math.max(...values);
 
   const padding = 20;
 
@@ -90,33 +121,46 @@ function draw(candles) {
 
   ctx.beginPath();
 
-  values.forEach((value, index) => {
+  values.forEach(
+    (value, index) => {
 
-    const x =
-      padding +
-      index *
-        ((width - padding * 2) /
-          Math.max(values.length - 1, 1));
+      const x =
+        padding +
+        index *
+        (
+          (width - padding * 2) /
+          Math.max(
+            values.length - 1,
+            1
+          )
+        );
 
-    const y =
-      height -
-      padding -
-      (value - min) * scale;
+      const y =
+        height -
+        padding -
+        (value - min) * scale;
 
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+
     }
+  );
 
-  });
+  ctx.strokeStyle =
+    "#19d5b0";
 
-  ctx.strokeStyle = "#19d5b0";
   ctx.lineWidth = 2;
+
   ctx.stroke();
 }
 
+
 async function analyze() {
+
+  if (!$("status")) return;
 
   $("status").textContent =
     "Scanning live market data…";
@@ -138,12 +182,17 @@ async function analyze() {
       await response.json();
 
     if (!data.ok) {
+
       throw new Error(
-        data.error || "Market analysis failed"
+        data.error ||
+        "Market analysis failed"
       );
+
     }
 
-    const analysis = data.analysis;
+    const analysis =
+      data.analysis || {};
+
     const indicators =
       analysis.indicators || {};
 
@@ -154,7 +203,7 @@ async function analyze() {
       fmt(indicators.rsi14);
 
     $("confidence").textContent =
-      `${analysis.confidence}/100`;
+      `${analysis.confidence ?? 0}/100`;
 
     if (
       indicators.ema20 &&
@@ -169,15 +218,21 @@ async function analyze() {
 
     } else {
 
-      $("trend").textContent = "--";
+      $("trend").textContent =
+        "--";
 
     }
 
     $("signal").textContent =
-      analysis.signal || "WAIT";
+      analysis.signal ||
+      "WAIT";
 
     $("reason").textContent =
-      (analysis.reasons || []).join(" • ");
+      Array.isArray(
+        analysis.reasons
+      )
+        ? analysis.reasons.join(" • ")
+        : "";
 
     $("entry").textContent =
       fmt(analysis.entry);
@@ -202,60 +257,115 @@ async function analyze() {
   } catch (error) {
 
     $("status").textContent =
-      error.message || "Analysis failed";
+      error.message ||
+      "Analysis failed";
 
   }
 }
 
-$("analyze").onclick = analyze;
 
-$("scan").onclick = async () => {
+if ($("analyze")) {
+  $("analyze").onclick =
+    analyze;
+}
 
-  $("scanout").innerHTML =
-    "<p>Scanning all markets…</p>";
 
-  try {
+if ($("scan")) {
 
-    const timeframe =
-      $("tf").value;
+  $("scan").onclick =
+    async () => {
 
-    const response =
-      await fetch(
-        `/api/scanner?timeframe=${encodeURIComponent(timeframe)}`
-      );
+      $("scanout").innerHTML =
+        "<p>🔍 Scanning all markets…</p>";
 
-    const data =
-      await response.json();
+      try {
 
-    if (!data.ok) {
-      throw new Error(
-        data.error || "Scanner failed"
-      );
-    }
+        const timeframe =
+          $("tf").value;
 
-    $("scanout").innerHTML =
-      data.results
-        .map(item => {
+        const response =
+          await fetch(
+            `/api/scanner?timeframe=${encodeURIComponent(timeframe)}`
+          );
 
-          return `
-            <div class="scanrow">
-              <b>${item.symbol}</b>
-              <span>${item.signal || "ERROR"}</span>
-              <span>${item.confidence ?? "--"}/100</span>
-              <span>${item.price ? fmt(item.price) : (item.error || "--")}</span>
-            </div>
-          `;
+        const data =
+          await response.json();
 
-        })
-        .join("");
+        if (!data.ok) {
 
-  } catch (error) {
+          throw new Error(
+            data.error ||
+            "Scanner failed"
+          );
 
-    $("scanout").textContent =
-      error.message || "Scanner failed";
+        }
 
-  }
-};
+        $("scanout").innerHTML =
+          data.results
+            .map(item => {
+
+              let direction =
+                "WAIT";
+
+              if (
+                item.signal &&
+                item.signal.includes("BUY")
+              ) {
+                direction =
+                  "⬆ UP";
+              }
+
+              if (
+                item.signal &&
+                item.signal.includes("SELL")
+              ) {
+                direction =
+                  "⬇ DOWN";
+              }
+
+              return `
+                <div class="scanrow">
+
+                  <b>${item.symbol}</b>
+
+                  <span>
+                    ${direction}
+                  </span>
+
+                  <span>
+                    ${item.signal || "WAIT"}
+                  </span>
+
+                  <span>
+                    ${item.confidence ?? "--"}/100
+                  </span>
+
+                  <span>
+                    ${
+                      item.price
+                        ? fmt(item.price)
+                        : (item.error || "--")
+                    }
+                  </span>
+
+                </div>
+              `;
+
+            })
+            .join("");
+
+      } catch (error) {
+
+        $("scanout").textContent =
+          error.message ||
+          "Scanner failed";
+
+      }
+
+    };
+
+}
+
 
 function fileToBase64(file) {
 
@@ -274,16 +384,20 @@ function fileToBase64(file) {
           result.indexOf(",");
 
         if (comma === -1) {
+
           reject(
             new Error(
               "Could not read image"
             )
           );
+
           return;
         }
 
         resolve(
-          result.slice(comma + 1)
+          result.slice(
+            comma + 1
+          )
         );
 
       };
@@ -302,10 +416,13 @@ function fileToBase64(file) {
 
     }
   );
+
 }
+
 
 const chartButton =
   $("analyzeChart");
+
 
 if (chartButton) {
 
@@ -313,7 +430,7 @@ if (chartButton) {
     async () => {
 
       const file =
-        $("image").files[0];
+        $("image")?.files?.[0];
 
       const status =
         $("chartStatus");
@@ -329,7 +446,11 @@ if (chartButton) {
         return;
       }
 
-      if (file.size > 15 * 1024 * 1024) {
+
+      if (
+        file.size >
+        15 * 1024 * 1024
+      ) {
 
         status.textContent =
           "Image is too large. Please use an image smaller than 15 MB.";
@@ -337,12 +458,18 @@ if (chartButton) {
         return;
       }
 
+
+      const allowedTypes = [
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+      ];
+
+
       if (
-        ![
-          "image/png",
-          "image/jpeg",
-          "image/webp"
-        ].includes(file.type)
+        !allowedTypes.includes(
+          file.type
+        )
       ) {
 
         status.textContent =
@@ -351,15 +478,20 @@ if (chartButton) {
         return;
       }
 
-      status.textContent =
-        "AI is scanning your chart…";
 
-      result.classList.add("hidden");
+      status.textContent =
+        "🔍 SCANNING CHART…";
+
+      result.classList.add(
+        "hidden"
+      );
+
 
       try {
 
         const image =
           await fileToBase64(file);
+
 
         const response =
           await fetch(
@@ -374,13 +506,16 @@ if (chartButton) {
 
               body: JSON.stringify({
                 image,
-                mimeType: file.type
+                mimeType:
+                  file.type
               })
             }
           );
 
+
         const data =
           await response.json();
+
 
         if (!data.ok) {
 
@@ -391,61 +526,180 @@ if (chartButton) {
 
         }
 
+
         const analysis =
           data.analysis || {};
 
-        $("chartSignal").textContent =
-          analysis.signal || "WAIT";
 
-        $("chartConfidence").textContent =
-          `${analysis.confidence ?? 0}/100`;
+        const signal =
+          String(
+            analysis.signal ||
+            "WAIT"
+          ).toUpperCase();
 
-        $("chartTrend").textContent =
-          analysis.trend || "--";
 
-        $("chartPattern").textContent =
-          analysis.pattern || "--";
+        let direction =
+          "SIDEWAYS";
 
-        $("chartEntry").textContent =
-          fmt(analysis.entry);
 
-        $("chartSL").textContent =
-          fmt(analysis.stopLoss);
+        if (
+          signal.includes("BUY")
+        ) {
 
-        $("chartTP1").textContent =
-          fmt(analysis.takeProfit1);
+          direction =
+            "⬆ UP";
 
-        $("chartTP2").textContent =
-          fmt(analysis.takeProfit2);
+        } else if (
+          signal.includes("SELL")
+        ) {
 
-        $("chartTP3").textContent =
-          fmt(analysis.takeProfit3);
+          direction =
+            "⬇ DOWN";
+
+        }
+
+
+        if ($("chartSignal")) {
+
+          $("chartSignal").textContent =
+            signal;
+
+        }
+
+
+        if ($("chartDirection")) {
+
+          $("chartDirection").textContent =
+            direction;
+
+        }
+
+
+        if ($("chartSignalBox")) {
+
+          $("chartSignalBox").textContent =
+            signal;
+
+        }
+
+
+        if ($("chartConfidence")) {
+
+          $("chartConfidence").textContent =
+            `${analysis.confidence ?? 0}/100`;
+
+        }
+
+
+        if ($("chartTrend")) {
+
+          $("chartTrend").textContent =
+            analysis.trend ||
+            "--";
+
+        }
+
+
+        if ($("chartPattern")) {
+
+          $("chartPattern").textContent =
+            analysis.pattern ||
+            "--";
+
+        }
+
+
+        if ($("chartEntry")) {
+
+          $("chartEntry").textContent =
+            fmt(analysis.entry);
+
+        }
+
+
+        if ($("chartSL")) {
+
+          $("chartSL").textContent =
+            fmt(analysis.stopLoss);
+
+        }
+
+
+        if ($("chartTP1")) {
+
+          $("chartTP1").textContent =
+            fmt(
+              analysis.takeProfit1
+            );
+
+        }
+
+
+        if ($("chartTP2")) {
+
+          $("chartTP2").textContent =
+            fmt(
+              analysis.takeProfit2
+            );
+
+        }
+
+
+        if ($("chartTP3")) {
+
+          $("chartTP3").textContent =
+            fmt(
+              analysis.takeProfit3
+            );
+
+        }
+
 
         const reasons =
           $("chartReasons");
 
-        reasons.innerHTML = "";
 
-        const list =
-          Array.isArray(analysis.reasons)
-            ? analysis.reasons
-            : [];
+        if (reasons) {
 
-        list.forEach(reason => {
+          reasons.innerHTML =
+            "";
 
-          const li =
-            document.createElement("li");
+          const list =
+            Array.isArray(
+              analysis.reasons
+            )
+              ? analysis.reasons
+              : [];
 
-          li.textContent = reason;
 
-          reasons.appendChild(li);
+          list.forEach(
+            reason => {
 
-        });
+              const li =
+                document.createElement(
+                  "li"
+                );
 
-        result.classList.remove("hidden");
+              li.textContent =
+                reason;
+
+              reasons.appendChild(
+                li
+              );
+
+            }
+          );
+
+        }
+
+
+        result.classList.remove(
+          "hidden"
+        );
+
 
         status.textContent =
-          "AI chart analysis completed.";
+          "✅ Chart scan completed.";
 
       } catch (error) {
 
@@ -458,5 +712,6 @@ if (chartButton) {
     };
 
 }
+
 
 analyze();
