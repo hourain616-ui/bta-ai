@@ -129,11 +129,11 @@
 
   <div class="panel upload">
 
-    <div class="paneltitle">AI CHART ANALYZER</div>
+    <div class="paneltitle">AI CHART SCANNER</div>
 
     <p>
-      Upload your trading chart screenshot.
-      BTA AI will analyze the chart using Gemini AI.
+      Upload your trading chart and let BTA AI scan the market structure,
+      trend, momentum and trade setup.
     </p>
 
     <input
@@ -145,16 +145,30 @@
     <br><br>
 
     <button id="analyzeChart">
-      ANALYZE CHART WITH AI
+      🔍 SCAN CHART
     </button>
 
-    <div id="chartStatus"></div>
+    <div id="chartStatus">
+      Ready to scan
+    </div>
 
     <div id="chartResult" class="hidden">
+
+      <div class="paneltitle">AI SCAN RESULT</div>
 
       <h2 id="chartSignal">WAIT</h2>
 
       <div class="cards">
+
+        <div>
+          <label>DIRECTION</label>
+          <strong id="chartDirection">--</strong>
+        </div>
+
+        <div>
+          <label>SIGNAL</label>
+          <strong id="chartSignalBox">--</strong>
+        </div>
 
         <div>
           <label>CONFIDENCE</label>
@@ -176,16 +190,20 @@
       <div class="levels">
 
         <p>Entry <b id="chartEntry">--</b></p>
+
         <p>Stop Loss <b id="chartSL">--</b></p>
+
         <p>Take Profit 1 <b id="chartTP1">--</b></p>
+
         <p>Take Profit 2 <b id="chartTP2">--</b></p>
+
         <p>Take Profit 3 <b id="chartTP3">--</b></p>
 
       </div>
 
       <div class="panel">
 
-        <div class="paneltitle">AI REASONS</div>
+        <div class="paneltitle">AI SCAN REASONS</div>
 
         <ul id="chartReasons"></ul>
 
@@ -196,7 +214,6 @@
   </div>
 
 </section>
-
 <section id="journal" class="page hidden">
 
   <div class="panel">
