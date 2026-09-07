@@ -620,7 +620,7 @@ if (chartButton) {
         if ($("chartSL")) {
 
           $("chartSL").textContent =
-            fmt(analysis.stopLoss);
+            fmt(analysis.stopLoss ?? analysis.stop_loss);
 
         }
 
