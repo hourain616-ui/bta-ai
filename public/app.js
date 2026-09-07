@@ -247,7 +247,7 @@ async function analyze() {
       fmt(analysis.takeProfit2 ?? analysis.tp2);
 
     $("tp3").textContent =
-      fmt(analysis.takeProfit3);
+      fmt(analysis.takeProfit3 ?? analysis.tp3);
 
     draw(data.candles);
 
