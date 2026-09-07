@@ -241,7 +241,7 @@ async function analyze() {
       fmt(analysis.stopLoss);
 
     $("tp1").textContent =
-      fmt(analysis.takeProfit1);
+      fmt(analysis.takeProfit1 ?? analysis.tp1);
 
     $("tp2").textContent =
       fmt(analysis.takeProfit2);
